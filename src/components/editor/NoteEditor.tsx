@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import { changeEditorIndent } from '@/lib/editor-indentation';
+import { changeEditorIndent, isTabKeyEvent, syncEditorSelectionFromDOM } from '@/lib/editor-indentation';
 import { editorJsonToMarkdown, markdownToHtml } from '@/lib/markdown';
 
 type Props = {
@@ -90,9 +90,10 @@ export function NoteEditor({ title, markdown, onTitleChange, onMarkdownChange, o
       <div
         className="editor-frame"
         onKeyDownCapture={(event) => {
-          if (event.key !== 'Tab' || !editor) return;
+          if (!editor || !isTabKeyEvent(event)) return;
           event.preventDefault();
           event.stopPropagation();
+          syncEditorSelectionFromDOM(editor.view);
           changeEditorIndent(editor.view, event.shiftKey);
         }}
       >

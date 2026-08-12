@@ -1,6 +1,51 @@
 import { liftListItem, sinkListItem } from '@tiptap/pm/schema-list';
-import type { EditorState } from '@tiptap/pm/state';
+import { TextSelection, type EditorState } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+
+/**
+ * Some IMEs report the physical Tab key as key="Process" while retaining
+ * code="Tab". Check both values so indentation is not keyboard-layout
+ * dependent.
+ */
+export function isTabKeyEvent(event: Pick<KeyboardEvent, 'key' | 'code'>): boolean {
+  return event.key === 'Tab' || event.code === 'Tab';
+}
+
+/**
+ * React's capture listener can run before ProseMirror has synchronized a very
+ * recent DOM selection (notably immediately after confirming Japanese IME
+ * input). Copy the browser selection into the editor state before applying a
+ * structural list command.
+ */
+export function syncEditorSelectionFromDOM(view: EditorView): boolean {
+  const domSelection = view.dom.ownerDocument.getSelection();
+  const { anchorNode, focusNode } = domSelection ?? {};
+  if (
+    !domSelection
+    || domSelection.rangeCount === 0
+    || !anchorNode
+    || !focusNode
+    || !view.dom.contains(anchorNode)
+    || !view.dom.contains(focusNode)
+  ) return false;
+
+  try {
+    const anchor = view.posAtDOM(anchorNode, domSelection.anchorOffset, 1);
+    const head = view.posAtDOM(focusNode, domSelection.focusOffset, 1);
+    const nextSelection = TextSelection.between(
+      view.state.doc.resolve(anchor),
+      view.state.doc.resolve(head),
+    );
+    if (!nextSelection.eq(view.state.selection)) {
+      view.dispatch(view.state.tr.setSelection(nextSelection));
+    }
+    return true;
+  } catch {
+    // A DOM mutation between keydown and position lookup is harmless. The
+    // caller can still use ProseMirror's last known selection.
+    return false;
+  }
+}
 
 function selectionIsInListItem(state: EditorState): boolean {
   const { $from } = state.selection;

@@ -32,15 +32,10 @@ export function NoteEditor({ title, markdown, onTitleChange, onMarkdownChange, o
       handleDOMEvents: {
         compositionstart: () => { composing.current = true; return false; },
         compositionend: () => { window.setTimeout(() => { composing.current = false; }, 0); return false; },
-        keydown: (view, event) => {
+        keydown: (_view, event) => {
           if (event.isComposing || composing.current) return false;
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave(); return true; }
           if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); if (!generating) onGenerate(); return true; }
-          if (event.key === 'Tab') {
-            event.preventDefault();
-            changeEditorIndent(view, event.shiftKey);
-            return true;
-          }
           // Enter intentionally falls through to ProseMirror's normal newline command.
           return false;
         },
@@ -92,7 +87,17 @@ export function NoteEditor({ title, markdown, onTitleChange, onMarkdownChange, o
         <button type="button" className="toolbar-button" onClick={() => editor && changeEditorIndent(editor.view, true)} aria-label="アウトデント">⇤</button>
         <button type="button" className="toolbar-button" onClick={() => editor && changeEditorIndent(editor.view, false)} aria-label="インデント">⇥</button>
       </div>
-      <div className="editor-frame"><EditorContent editor={editor} /></div>
+      <div
+        className="editor-frame"
+        onKeyDownCapture={(event) => {
+          if (event.key !== 'Tab' || !editor) return;
+          event.preventDefault();
+          event.stopPropagation();
+          changeEditorIndent(editor.view, event.shiftKey);
+        }}
+      >
+        <EditorContent editor={editor} />
+      </div>
       <div className="editor-footer">
         <span>{markdown.length.toLocaleString('ja-JP')} 文字</span>
         <span className="editor-hint"><kbd>Enter</kbd> 改行　·　<kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 図を生成　·　<kbd>Tab</kbd> インデント</span>

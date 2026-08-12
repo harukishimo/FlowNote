@@ -20,6 +20,13 @@ type Props = {
 };
 
 function indentSelection(editor: Editor, outdent: boolean) {
+  if (editor.isActive('listItem')) {
+    const chain = editor.chain().focus();
+    if (outdent) chain.liftListItem('listItem').run();
+    else chain.sinkListItem('listItem').run();
+    return;
+  }
+
   const { from, to } = editor.state.selection;
   const paragraphs: number[] = [];
   editor.state.doc.nodesBetween(from, to, (node, pos) => {

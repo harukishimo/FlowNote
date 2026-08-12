@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import type { Editor } from '@tiptap/core';
+import { changeEditorIndent } from '@/lib/editor-indentation';
 import { editorJsonToMarkdown, markdownToHtml } from '@/lib/markdown';
 
 type Props = {
@@ -19,36 +19,6 @@ type Props = {
   dirty?: boolean;
 };
 
-function indentSelection(editor: Editor, outdent: boolean) {
-  if (editor.isActive('listItem')) {
-    const chain = editor.chain().focus();
-    if (outdent) chain.liftListItem('listItem').run();
-    else chain.sinkListItem('listItem').run();
-    return;
-  }
-
-  const { from, to } = editor.state.selection;
-  const paragraphs: number[] = [];
-  editor.state.doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name === 'paragraph') paragraphs.push(pos + 1);
-  });
-  if (!paragraphs.length) {
-    const resolved = editor.state.doc.resolve(from);
-    if (resolved.parent.type.name === 'paragraph') paragraphs.push(resolved.start(resolved.depth));
-  }
-  const tr = editor.state.tr;
-  [...new Set(paragraphs)].sort((a, b) => b - a).forEach((position) => {
-    const node = editor.state.doc.nodeAt(position - 1);
-    if (!node) return;
-    const text = node.textContent;
-    if (outdent) {
-      const match = text.match(/^(?:\t| {1,2})/);
-      if (match) tr.delete(position, position + match[0].length);
-    } else tr.insertText('\t', position);
-  });
-  if (tr.docChanged) editor.view.dispatch(tr);
-}
-
 export function NoteEditor({ title, markdown, onTitleChange, onMarkdownChange, onGenerate, onSave, saving, generating, dirty }: Props) {
   const composing = useRef(false);
   const initialMarkdown = useRef(markdown);
@@ -62,11 +32,15 @@ export function NoteEditor({ title, markdown, onTitleChange, onMarkdownChange, o
       handleDOMEvents: {
         compositionstart: () => { composing.current = true; return false; },
         compositionend: () => { window.setTimeout(() => { composing.current = false; }, 0); return false; },
-        keydown: (_view, event) => {
+        keydown: (view, event) => {
           if (event.isComposing || composing.current) return false;
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave(); return true; }
           if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); if (!generating) onGenerate(); return true; }
-          if (event.key === 'Tab') { event.preventDefault(); indentSelection(editor!, event.shiftKey); return true; }
+          if (event.key === 'Tab') {
+            event.preventDefault();
+            changeEditorIndent(view, event.shiftKey);
+            return true;
+          }
           // Enter intentionally falls through to ProseMirror's normal newline command.
           return false;
         },
@@ -115,8 +89,8 @@ export function NoteEditor({ title, markdown, onTitleChange, onMarkdownChange, o
         <button type="button" className="toolbar-button" onClick={() => toggle(() => editor?.chain().toggleOrderedList().run() ?? false)} aria-label="番号付きリスト">1.</button>
         <button type="button" className="toolbar-button" onClick={() => toggle(() => editor?.chain().toggleBlockquote().run() ?? false)} aria-label="引用">❞</button>
         <span className="toolbar-spacer" />
-        <button type="button" className="toolbar-button" onClick={() => editor && indentSelection(editor, true)} aria-label="アウトデント">⇤</button>
-        <button type="button" className="toolbar-button" onClick={() => editor && indentSelection(editor, false)} aria-label="インデント">⇥</button>
+        <button type="button" className="toolbar-button" onClick={() => editor && changeEditorIndent(editor.view, true)} aria-label="アウトデント">⇤</button>
+        <button type="button" className="toolbar-button" onClick={() => editor && changeEditorIndent(editor.view, false)} aria-label="インデント">⇥</button>
       </div>
       <div className="editor-frame"><EditorContent editor={editor} /></div>
       <div className="editor-footer">

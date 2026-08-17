@@ -46,6 +46,9 @@ export type GenerateActivityGraphResult = {
 const STRUCTURED_PROMPT = `You are FlowNote's activity diagram extraction service.
 Convert the user's memo into only a JSON ActivityGraph that follows the supplied response schema.
 Never return Markdown, HTML, Mermaid, comments, or explanatory prose.
+The memo may use Markdown lists. Treat leading spaces or tabs before list markers as meaningful hierarchy:
+items at the same indentation are siblings, and greater indentation means a child flow. Do not turn siblings
+into a parent-child relationship merely because an unselected parent line is absent; use the supplied context lines.
 Use exactly one start and one end when the memo permits it. Use step for an action, decision for a condition,
 merge for joining branches, parallel for fork/join work, and loop for a repeated action or condition.
 Use stable ids (start, step-1, decision-1, ...). Every edge must refer to existing node ids.

@@ -9,7 +9,7 @@ import { GenerationSourceModal } from '@/components/editor/GenerationSourceModal
 import { PonchiPreview } from '@/components/export/PonchiPreview';
 import { apiRequest, jsonBody } from '@/lib/api-client';
 import { EMPTY_GRAPH, formatDate, normalizeGraph, normalizeNote, type ActivityGraph, type DiagramSnapshot, type NoteRecord } from '@/lib/flow-types';
-import { createMemoSourceLines, selectMemoSource } from '@/lib/memo-selection';
+import { createMemoSourceLines, resolveMemoSourceSelection } from '@/lib/memo-selection';
 
 type NotesResponse = { notes?: unknown[] } | unknown[];
 
@@ -34,7 +34,8 @@ export function NotesWorkspace() {
   const [lastGenerationSource, setLastGenerationSource] = useState('');
 
   const sourceLines = useMemo(() => createMemoSourceLines(note.contentMarkdown), [note.contentMarkdown]);
-  const selectedSource = useMemo(() => selectMemoSource(note.contentMarkdown, selectedSourceIndexes), [note.contentMarkdown, selectedSourceIndexes]);
+  const sourceSelection = useMemo(() => resolveMemoSourceSelection(note.contentMarkdown, selectedSourceIndexes), [note.contentMarkdown, selectedSourceIndexes]);
+  const selectedSource = sourceSelection.text;
 
   const loadNotes = useCallback(async () => {
     try {
@@ -162,6 +163,6 @@ export function NotesWorkspace() {
       <button type="button" className="floating-output-button button button-primary" onClick={openOutput} disabled={!graph.nodes.length}>ポンチ絵をつくる <span aria-hidden="true">↗</span></button>
     </div>
     <PonchiPreview open={outputOpen} graph={graph} noteTitle={note.title} initialSnapshot={savedSnapshot} onClose={() => setOutputOpen(false)} onSave={saveSnapshot} />
-    <GenerationSourceModal open={sourceModalOpen} lines={sourceLines} selectedIndexes={selectedSourceIndexes} selectedText={selectedSource} onToggle={toggleSourceLine} onSelectAll={() => setSelectedSourceIndexes(new Set(sourceLines.map(({ index }) => index)))} onClear={() => setSelectedSourceIndexes(new Set())} onCancel={() => setSourceModalOpen(false)} onConfirm={() => void confirmSourceSelection()} />
+    <GenerationSourceModal open={sourceModalOpen} lines={sourceLines} selectedIndexes={selectedSourceIndexes} contextIndexes={sourceSelection.contextIndexes} selectedText={selectedSource} onToggle={toggleSourceLine} onSelectAll={() => setSelectedSourceIndexes(new Set(sourceLines.map(({ index }) => index)))} onClear={() => setSelectedSourceIndexes(new Set())} onCancel={() => setSourceModalOpen(false)} onConfirm={() => void confirmSourceSelection()} />
   </>;
 }

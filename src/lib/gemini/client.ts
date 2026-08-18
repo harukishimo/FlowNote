@@ -49,6 +49,10 @@ Never return Markdown, HTML, Mermaid, comments, or explanatory prose.
 The memo may use Markdown lists. Treat leading spaces or tabs before list markers as meaningful hierarchy:
 items at the same indentation are siblings, and greater indentation means a child flow. Do not turn siblings
 into a parent-child relationship merely because an unselected parent line is absent; use the supplied context lines.
+Markdown hierarchy is a first-class graph relationship, not decorative formatting. When one list item has
+multiple direct children, emit one edge from the parent to each child (kind branch) and keep those children at
+the same graph rank. Never connect adjacent siblings to one another just because they appear next to each other.
+Only create a serial edge when the memo explicitly describes a before/after relationship at the same level.
 Use exactly one start and one end when the memo permits it. Use step for an action, decision for a condition,
 merge for joining branches, parallel for fork/join work, and loop for a repeated action or condition.
 Use stable ids (start, step-1, decision-1, ...). Every edge must refer to existing node ids.
@@ -152,6 +156,9 @@ function repairPrompt(sourceText: string, previous: unknown, problems: string[])
 Keep the business meaning of the memo. Fix every listed graph problem. Do not remove a real decision, branch, retry,
 or concurrent path merely to silence validation. Every decision needs at least two labeled outgoing branch edges;
 retry cycles need a non-loop exit. Use null for sourceRange when the exact offset is uncertain.
+Treat Markdown indentation as hierarchy: same-indent list items are siblings, greater-indent items are children.
+For a parent with multiple direct children, emit parent-to-each-child branch edges at the same rank; never chain
+siblings together unless the memo explicitly says they are sequential.
 
 <memo>
 ${sourceText}

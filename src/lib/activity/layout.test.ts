@@ -40,4 +40,26 @@ describe('layoutActivityGraph', () => {
     expect(layout.positions.get('decision')?.rank).toBe(1);
     expect(layout.positions.get('no')?.rank).toBe(2);
   });
+
+  it('lays out a one-to-many parent decomposition horizontally', () => {
+    const layout = layoutActivityGraph({
+      nodes: [
+        { id: 'parent', type: 'step' },
+        { id: 'child-a', type: 'step' },
+        { id: 'child-b', type: 'step' },
+        { id: 'child-c', type: 'step' },
+        { id: 'child-d', type: 'step' },
+      ],
+      edges: [
+        { from: 'parent', to: 'child-a', kind: 'branch' },
+        { from: 'parent', to: 'child-b', kind: 'branch' },
+        { from: 'parent', to: 'child-c', kind: 'branch' },
+        { from: 'parent', to: 'child-d', kind: 'branch' },
+      ],
+    });
+    const children = ['child-a', 'child-b', 'child-c', 'child-d'].map((id) => layout.positions.get(id)!);
+    expect(new Set(children.map((item) => item.rank)).size).toBe(1);
+    expect(new Set(children.map((item) => item.x)).size).toBe(4);
+    expect(layout.width).toBeGreaterThan(720);
+  });
 });

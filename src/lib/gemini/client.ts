@@ -5,6 +5,7 @@ import {
   GEMINI_ACTIVITY_GRAPH_JSON_SCHEMA,
   normalizeActivityGraph,
 } from "@/lib/activity/schema";
+import { applyMarkdownHierarchy } from "@/lib/activity/hierarchy";
 import { validateActivityGraph } from "@/lib/activity/validate";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
@@ -53,6 +54,8 @@ Markdown hierarchy is a first-class graph relationship, not decorative formattin
 multiple direct children, emit one edge from the parent to each child (kind branch) and keep those children at
 the same graph rank. Never connect adjacent siblings to one another just because they appear next to each other.
 Only create a serial edge when the memo explicitly describes a before/after relationship at the same level.
+Represent every selected list item exactly once; do not omit a bullet just because it is a short goal or context
+line. Set each item's sourceRange to the corresponding line so the hierarchy can be verified after generation.
 Use exactly one start and one end when the memo permits it. Use step for an action, decision for a condition,
 merge for joining branches, parallel for fork/join work, and loop for a repeated action or condition.
 Use stable ids (start, step-1, decision-1, ...). Every edge must refer to existing node ids.
@@ -142,10 +145,24 @@ function validateCandidate(decoded: unknown, sourceText: string): CandidateResul
       problems: validation.error.issues.map((issue) => `${issue.path.join(".") || "graph"}: ${issue.message}`),
     };
   }
+  const hierarchyGraph = applyMarkdownHierarchy(validation.graph, sourceText);
+  const hierarchyValidation = validateActivityGraph(hierarchyGraph, sourceText);
+  if (!hierarchyValidation.ok) {
+    // The source-driven pass is deliberately conservative. If a malformed
+    // model graph cannot be revalidated after normalization, keep the already
+    // validated graph rather than turning a renderable result into an error.
+    return {
+      ok: true,
+      graph: validation.graph,
+      repairProblems: validation.warnings
+        .filter((item) => REPAIRABLE_WARNING_CODES.has(item.code))
+        .map((item) => `${item.code}: ${item.message}`),
+    };
+  }
   return {
     ok: true,
-    graph: validation.graph,
-    repairProblems: validation.warnings
+    graph: hierarchyValidation.graph,
+    repairProblems: hierarchyValidation.warnings
       .filter((item) => REPAIRABLE_WARNING_CODES.has(item.code))
       .map((item) => `${item.code}: ${item.message}`),
   };
@@ -159,6 +176,7 @@ retry cycles need a non-loop exit. Use null for sourceRange when the exact offse
 Treat Markdown indentation as hierarchy: same-indent list items are siblings, greater-indent items are children.
 For a parent with multiple direct children, emit parent-to-each-child branch edges at the same rank; never chain
 siblings together unless the memo explicitly says they are sequential.
+Represent every selected list item exactly once and preserve its sourceRange, including short context lines.
 
 <memo>
 ${sourceText}
